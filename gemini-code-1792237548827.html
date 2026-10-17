@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindCalm 灵汐 - 心理健康康复与监测平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        teal: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#10b981', 600: '#059669', 800: '#065f46' },
+                        sky: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- 顶部导航 -->
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-sky-500 flex items-center justify-center text-white font-bold text-xl shadow-md">M</div>
+                <span class="text-xl font-bold bg-gradient-to-r from-teal-600 to-sky-600 bg-clip-text text-transparent">MindCalm <span class="text-sm font-normal text-slate-500" id="sub-title">灵汐/마음쉼</span></span>
+            </div>
+
+            <!-- 语言切换选择器 -->
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid font-bold fa-globe text-slate-400"></i>
+                <select id="langSelect" onchange="changeLanguage(this.value)" class="bg-slate-100 text-slate-700 text-sm font-medium rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer">
+                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体区域 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 space-y-8">
+        
+        <!-- 核心功能区：摄像头/EEG 监测 -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧：摄像头 AI 监测窗口 -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-video text-teal-500"></i>
+                        <span id="t-cam-title">摄像头 AI 状态监测 (rPPG)</span>
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-4" id="t-cam-desc">通过无接触式光电容积脉搏波法检测微血管颜色变化，评估心率变异性(HRV)与心理压力。</p>
+                </div>
+
+                <div class="relative bg-slate-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center mb-4 border border-slate-800">
+                    <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                    <canvas id="faceCanvas" class="absolute top-0 left-0 w-full h-full hidden"></canvas>
+                    <div id="camPlaceholder" class="text-center p-4">
+                        <i class="fa-solid fa-camera-retro text-4xl text-slate-600 mb-2"></i>
+                        <p class="text-xs text-slate-400" id="t-cam-prompt">点击下方按钮开启摄像头体验</p>
+                    </div>
+                </div>
+
+                <button id="toggleCamBtn" onclick="toggleCamera()" class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium transition shadow-sm text-sm">
+                    <span id="t-btn-start-cam">开启摄像头实时检测</span>
+                </button>
+            </div>
+
+            <!-- 右侧：实时波形与心理数据指标 -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-wave-square text-sky-500"></i>
+                            <span id="t-eeg-title">脑电波 (EEG) 与生理状态动态监测</span>
+                        </h2>
+                        <span class="px-2.5 py-1 bg-teal-50 text-teal-600 rounded-full text-xs font-semibold" id="t-status">实时分析中</span>
+                    </div>
+
+                    <!-- Canvas 波形 -->
+                    <div class="bg-slate-900 rounded-xl p-3 mb-4">
+                        <canvas id="eegCanvas" class="w-full h-32"></canvas>
+                    </div>
+
+                    <!-- 状态指标框 -->
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500" id="t-hrv">HRV 心率变异性</p>
+                            <p class="text-xl font-bold text-teal-600 mt-1" id="val-hrv">62 ms</p>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500" id="t-stress">压力放松指数</p>
+                            <p class="text-xl font-bold text-sky-600 mt-1" id="val-stress">78 / 100</p>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500" id="t-emotion">情绪倾向评估</p>
+                            <p class="text-xl font-bold text-indigo-600 mt-1" id="val-emotion">平静/舒缓</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 疗愈与打卡工具组 -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 432Hz 音乐播放器 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-music text-teal-500"></i>
+                    <span id="t-music-title">432Hz 舒缓疗愈音律</span>
+                </h3>
+                <p class="text-xs text-slate-500 mb-4" id="t-music-desc">Alpha 波与自然声效，帮助降低皮质醇水平。</p>
+                <div class="space-y-2">
+                    <button class="w-full p-3 bg-slate-50 hover:bg-teal-50 rounded-xl text-left text-sm font-medium flex items-center justify-between text-slate-700 transition">
+                        <span><i class="fa-solid fa-tree mr-2 text-teal-500"></i><span id="t-track1">森林晨雾 (432Hz)</span></span>
+                        <i class="fa-solid fa-play text-slate-400"></i>
+                    </button>
+                    <button class="w-full p-3 bg-slate-50 hover:bg-teal-50 rounded-xl text-left text-sm font-medium flex items-center justify-between text-slate-700 transition">
+                        <span><i class="fa-solid fa-water mr-2 text-sky-500"></i><span id="t-track2">深海 Alpha 脑电波</span></span>
+                        <i class="fa-solid fa-play text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 呼吸引导训练 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center flex flex-col justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-2 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wind text-sky-500"></i>
+                        <span id="t-breath-title">4-7-8 正念呼吸训练</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-4" id="t-breath-desc">平缓呼吸以激活副交感神经系统。</p>
+                </div>
+                <div class="my-4 flex justify-center">
+                    <div id="breathCircle" class="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center text-teal-700 font-bold text-sm transition-all duration-1000">
+                        <span id="t-breath-state">吸气</span>
+                    </div>
+                </div>
+                <button onclick="toggleBreathing()" class="py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium shadow-sm transition">
+                    <span id="t-btn-breath">开始呼吸指引</span>
+                </button>
+            </div>
+
+            <!-- PHQ-9 测评与卡片 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check text-indigo-500"></i>
+                        <span id="t-phq-title">PHQ-9 心理抑郁自测</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-4" id="t-phq-desc">国际通用的健康问卷，定期评估自身情绪状态。</p>
+                </div>
+                <div class="bg-indigo-50 p-4 rounded-xl text-indigo-900 text-xs leading-relaxed mb-4" id="t-phq-info">
+                    根据过去两周的情况进行评估，只需 2 分钟即可获取专业健康建议。
+                </div>
+                <button class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium shadow-sm transition">
+                    <span id="t-btn-phq">开始自测问卷</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 全平台多端部署与同步中心 -->
+        <section class="bg-gradient-to-r from-teal-800 to-sky-900 text-white p-8 rounded-3xl shadow-lg">
+            <div class="max-w-3xl">
+                <h2 class="text-2xl font-bold mb-3" id="t-deploy-title">跨平台全设备支持与分发下载</h2>
+                <p class="text-teal-100 text-sm mb-6" id="t-deploy-desc">已全面适配移动端（华为 HarmonyOS 鸿蒙、小米 HyperOS 澎湃、iOS、Android）以及桌面端（Windows, macOS），支持设备数据云同步。</p>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-slate-800">
+                    <div class="bg-white/90 p-3 rounded-xl text-center backdrop-blur-sm">
+                        <i class="fa-solid fa-mobile-screen text-2xl text-teal-600 mb-1"></i>
+                        <p class="font-bold text-xs">Huawei / HarmonyOS</p>
+                        <p class="text-[10px] text-slate-500" id="t-hw">华为应用市场 / PWA</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl text-center backdrop-blur-sm">
+                        <i class="fa-solid fa-mobile text-2xl text-orange-500 mb-1"></i>
+                        <p class="font-bold text-xs">Xiaomi / HyperOS</p>
+                        <p class="text-[10px] text-slate-500" id="t-mi">小米应用商店 / PWA</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl text-center backdrop-blur-sm">
+                        <i class="fa-brands fa-apple text-2xl text-slate-700 mb-1"></i>
+                        <p class="font-bold text-xs">iOS / iPadOS</p>
+                        <p class="text-[10px] text-slate-500" id="t-ios">添加到主屏幕</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl text-center backdrop-blur-sm">
+                        <i class="fa-desktop font-bold text-2xl text-sky-600 mb-1"></i>
+                        <p class="font-bold text-xs">Windows / macOS</p>
+                        <p class="text-[10px] text-slate-500" id="t-pc">桌面客户端 / 浏览器</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-slate-100 py-6 text-center text-xs text-slate-400">
+        <p id="t-footer">MindCalm © 2026 - 专注于抑郁症及心理健康康复服务</p>
+    </footer>
+
+    <!-- 交互逻辑与多语言字典 Script -->
+    <script>
+        // 四语言字典
+        const i18n = {
+            'zh-CN': {
+                'sub-title': '灵汐/마음쉼',
+                't-cam-title': '摄像头 AI 状态监测 (rPPG)',
+                't-cam-desc': '通过无接触式光电容积脉搏波法检测微血管颜色变化，评估心率变异性(HRV)与心理压力。',
+                't-cam-prompt': '点击下方按钮开启摄像头体验',
+                't-btn-start-cam': '开启摄像头实时检测',
+                't-btn-stop-cam': '关闭摄像头检测',
+                't-eeg-title': '脑电波 (EEG) 与生理状态动态监测',
+                't-status': '实时分析中',
+                't-hrv': 'HRV 心率变异性',
+                't-stress': '压力放松指数',
+                't-emotion': '情绪倾向评估',
+                'val-emotion': '平静/舒缓',
+                't-music-title': '432Hz 舒缓疗愈音律',
+                't-music-desc': 'Alpha 波与自然声效，帮助降低皮质醇水平。',
+                't-track1': '森林晨雾 (432Hz)',
+                't-track2': '深海 Alpha 脑电波',
+                't-breath-title': '4-7-8 正念呼吸训练',
+                't-breath-desc': '平缓呼吸以激活副交感神经系统。',
+                't-breath-state': '吸气',
+                't-btn-breath': '开始呼吸指引',
+                't-phq-title': 'PHQ-9 心理抑郁自测',
+                't-phq-desc': '国际通用的健康问卷，定期评估自身情绪状态。',
+                't-phq-info': '根据过去两周的情况进行评估，只需 2 分钟即可获取专业健康建议。',
+                't-btn-phq': '开始自测问卷',
+                't-deploy-title': '跨平台全设备支持与分发下载',
+                't-deploy-desc': '已全面适配移动端（华为 HarmonyOS 鸿蒙、小米 HyperOS 澎湃、iOS、Android）以及桌面端（Windows, macOS），支持设备数据云同步。',
+                't-hw': '华为应用市场 / PWA',
+                't-mi': '小米应用商店 / PWA',
+                't-ios': '添加到主屏幕',
+                't-pc': '桌面客户端 / 浏览器',
+                't-footer': 'MindCalm © 2026 - 专注于抑郁症及心理健康康复服务'
+            },
+            'zh-TW': {
+                'sub-title': '靈汐/마음쉼',
+                't-cam-title': '鏡頭 AI 狀態監測 (rPPG)',
+                't-cam-desc': '透過無接觸式光電容積脈搏波法檢測微血管顏色變化，評估心率變異性(HRV)與心理壓力。',
+                't-cam-prompt': '點擊下方按鈕開啟鏡頭體驗',
+                't-btn-start-cam': '開啟鏡頭即時檢測',
+                't-btn-stop-cam': '關閉鏡頭檢測',
+                't-eeg-title': '腦電波 (EEG) 與生理狀態動態監測',
+                't-status': '即時分析中',
+                't-hrv': 'HRV 心率變異性',
+                't-stress': '壓力放鬆指數',
+                't-emotion': '情緒傾向評估',
+                'val-emotion': '平靜/舒緩',
+                't-music-title': '432Hz 舒緩療癒音律',
+                't-music-desc': 'Alpha 波與自然聲效，幫助降低皮質醇水平。',
+                't-track1': '森林晨霧 (432Hz)',
+                't-track2': '深海 Alpha 腦電波',
+                't-breath-title': '4-7-8 正念呼吸訓練',
+                't-breath-desc': '平緩呼吸以激活副交感神經系統。',
+                't-breath-state': '吸氣',
+                't-btn-breath': '開始呼吸指引',
+                't-phq-title': 'PHQ-9 心理抑鬱自測',
+                't-phq-desc': '國際通用的健康問卷，定期評估自身情緒狀態。',
+                't-phq-info': '根據過去兩週的情況進行評估，只需 2 分鐘即可獲取專業健康建議。',
+                't-btn-phq': '開始自測問卷',
+                't-deploy-title': '跨平台全設備支援與分發下載',
+                't-deploy-desc': '已全面適配移動端（華為 HarmonyOS 鴻蒙、小米 HyperOS 澎湃、iOS、Android）以及桌面端（Windows, macOS），支援設備數據雲同步。',
+                't-hw': '華為應用市場 / PWA',
+                't-mi': '小米應用商店 / PWA',
+                't-ios': '新增至主畫面',
+                't-pc': '桌面客戶端 / 瀏覽器',
+                't-footer': 'MindCalm © 2026 - 專注於抑鬱症及心理健康康復服務'
+            },
+            'en': {
+                'sub-title': 'MindCalm',
+                't-cam-title': 'Camera AI Status Monitoring (rPPG)',
+                't-cam-desc': 'Detects microvascular color changes via non-contact rPPG to assess HRV and mental stress.',
+                't-cam-prompt': 'Click button below to enable camera',
+                't-btn-start-cam': 'Start Camera Detection',
+                't-btn-stop-cam': 'Stop Camera Detection',
+                't-eeg-title': 'EEG & Physiological Status Monitoring',
+                't-status': 'Live Analyzing',
+                't-hrv': 'HRV Index',
+                't-stress': 'Relaxation Score',
+                't-emotion': 'Emotional State',
+                'val-emotion': 'Calm / Relaxed',
+                't-music-title': '432Hz Healing Music',
+                't-music-desc': 'Alpha waves & ambient natural sounds to reduce cortisol.',
+                't-track1': 'Forest Mist (432Hz)',
+                't-track2': 'Deep Sea Alpha Wave',
+                't-breath-title': '4-7-8 Mindfulness Breathing',
+                't-breath-desc': 'Slow down breathing to activate parasympathetic system.',
+                't-breath-state': 'Inhale',
+                't-btn-breath': 'Start Breathing Guide',
+                't-phq-title': 'PHQ-9 Depression Self-Assessment',
+                't-phq-desc': 'Standardized questionnaire to track your emotional well-being.',
+                't-phq-info': 'Evaluates the past 2 weeks. Takes 2 minutes to get professional feedback.',
+                't-btn-phq': 'Start Questionnaire',
+                't-deploy-title': 'Cross-Platform Multi-Device Support',
+                't-deploy-desc': 'Supports Huawei HarmonyOS, Xiaomi HyperOS, iOS, Android, Windows & macOS with cloud sync.',
+                't-hw': 'Huawei AppGallery / PWA',
+                't-mi': 'Xiaomi App Store / PWA',
+                't-ios': 'Add to Home Screen',
+                't-pc': 'Desktop App / Browser',
+                't-footer': 'MindCalm © 2026 - Mental Health & Depression Recovery Platform'
+            },
+            'ko': {
+                'sub-title': '마음쉼',
+                't-cam-title': '카메라 AI 상태 모니터링 (rPPG)',
+                't-cam-desc': '비접촉 rPPG 방식으로 피부 색상 변화를 모니터링하여 HRV 및 스트레스를 측정합니다.',
+                't-cam-prompt': '아래 버튼을 눌러 카메라를 활성화하세요',
+                't-btn-start-cam': '카메라 감지 시작',
+                't-btn-stop-cam': '카메라 감지 중지',
+                't-eeg-title': '뇌파(EEG) 및 생체 상태 실시간 분석',
+                't-status': '실시간 분석 중',
+                't-hrv': 'HRV 심박변이도',
+                't-stress': '스트레스 이완 지수',
+                't-emotion': '감정 상태 평가',
+                'val-emotion': '평온 / 편안함',
+                't-music-title': '432Hz 치유 힐링 음원',
+                't-music-desc': '알파파와 자연의 소리로 코르티솔 수치를 낮춰줍니다.',
+                't-track1': '숲속의 아침 안개 (432Hz)',
+                't-track2': '심해 알파 뇌파 음원',
+                't-breath-title': '4-7-8 마인드풀니스 호흡법',
+                't-breath-desc': '부교감 신경을 활성화하여 마음을 안정을 돕습니다.',
+                't-breath-state': '숨 들이마시기',
+                't-btn-breath': '호흡 가이드 시작',
+                't-phq-title': 'PHQ-9 우울증 자가 진단',
+                't-phq-desc': '정기적인 자가 평가를 통해 마음 건강 상태를 확인하세요.',
+                't-phq-info': '지난 2주일간의 상태를 기준으로 2분 만에 결과를 확인해보세요.',
+                't-btn-phq': '자가 진단 시작',
+                't-deploy-title': '크로스 플랫폼 및 멀티 디바이스 지원',
+                't-deploy-desc': '화웨이 HarmonyOS, 샤오미 HyperOS, iOS, Android 및 PC(Windows, macOS)를 완벽 지원합니다.',
+                't-hw': '화웨이 앱갤러리 / PWA',
+                't-mi': '샤오미 앱스토어 / PWA',
+                't-ios': '홈 화면에 추가',
+                't-pc': '데스크톱 앱 / 브라우저',
+                't-footer': 'MindCalm © 2026 - 우울증 및 정신건강 회복 지원 플랫폼'
+            }
+        };
+
+        // 切换语言函数
+        function changeLanguage(lang) {
+            const dict = i18n[lang];
+            if (!dict) return;
+            for (let key in dict) {
+                const el = document.getElementById(key);
+                if (el) el.innerText = dict[key];
+            }
+        }
+
+        // 摄像头控制逻辑
+        let isCamActive = false;
+        let videoStream = null;
+
+        async function toggleCamera() {
+            const video = document.getElementById('webcam');
+            const placeholder = document.getElementById('camPlaceholder');
+            const btnStart = document.getElementById('t-btn-start-cam');
+            const currentLang = document.getElementById('langSelect').value;
+
+            if (!isCamActive) {
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = videoStream;
+                    video.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                    isCamActive = true;
+                    btnStart.innerText = i18n[currentLang]['t-btn-stop-cam'];
+                } catch (err) {
+                    alert('无法获取摄像头权限 / Camera permission denied');
+                }
+            } else {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                }
+                video.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                isCamActive = false;
+                btnStart.innerText = i18n[currentLang]['t-btn-start-cam'];
+            }
+        }
+
+        // 脑电波 Canvas 波形绘制
+        const canvas = document.getElementById('eegCanvas');
+        const ctx = canvas.getContext('2d');
+        let offset = 0;
+
+        function drawWave() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#10b981';
+
+            for (let x = 0; x < canvas.width; x++) {
+                const y = canvas.height / 2 + 
+                          Math.sin((x + offset) * 0.03) * 15 + 
+                          Math.cos((x + offset) * 0.05) * 10;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            offset += 2;
+            requestAnimationFrame(drawWave);
+        }
+        drawWave();
+
+        // 呼吸动画控制
+        let isBreathing = false;
+        function toggleBreathing() {
+            const circle = document.getElementById('breathCircle');
+            const label = document.getElementById('t-breath-state');
+            isBreathing = !isBreathing;
+
+            if (isBreathing) {
+                circle.classList.add('scale-125', 'bg-teal-200');
+                label.innerText = '呼气';
+            } else {
+                circle.classList.remove('scale-125', 'bg-teal-200');
+                label.innerText = '吸气';
+            }
+        }
+    </script>
+</body>
+</html>
